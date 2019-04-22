@@ -8,10 +8,10 @@ using namespace std;
 using namespace cv;
 
 // Sample fingerprint image that is comapred with all other images
-string CONTROL_IMG = "101_4.tif"; 
+string CONTROL_FILENAME = "101_4.tif";
 
 // Threshold for fingerprint comparisions. EX: result <= THRESHOLD is a match
-int THRESHOLD = 40;               
+int THRESHOLD = 100;               
 
 /*
  * Helper for thinning() on every iteration
@@ -34,7 +34,7 @@ void thinningIteration(Mat& image, int iter)
 			uchar p8 = image.at<uchar>(i, j - 1);
 			uchar p9 = image.at<uchar>(i - 1, j - 1);
 
-			int A = (p2 == 0 && p3 == 1) + (p3 == 0 && p4 == 1) +
+			int A = (p2 == 0 && p3 == 1) + (p3 == 0 && p4 == 1);
 					(p4 == 0 && p5 == 1) + (p5 == 0 && p6 == 1) +
 					(p6 == 0 && p7 == 1) + (p7 == 0 && p8 == 1) +
 					(p8 == 0 && p9 == 1) + (p9 == 0 && p2 == 1);
@@ -93,20 +93,24 @@ Mat getDescriptors(Mat& input_thinned, vector<KeyPoint> keypoints)
  * Helper to run all thinning operations, and find important corners
  *
  * @param input : Image of fingerprint to be operated on
+ * @param apply_thinning : Whether to apply thinning operation on fingerprint
  * @param display : Whether to show all comparisions after applied operations
  * @return : Descriptors grabbed from getDescriptors()
  */
-Mat applyAlgo(Mat &input, bool display = false)
+Mat applyAlgo(Mat& input, string filename, bool apply_thinning = false, bool display = false)
 {
-	Mat input_binary;
+	Mat input_binary, input_thinned, harris_corners, harris_normalised, rescaled;
 	threshold(input, input_binary, 0, 255, THRESH_BINARY_INV | THRESH_OTSU);
 	
 	// Apply thinning operation
-	Mat input_thinned = input_binary.clone();
-	thinning(input_thinned);
+	if (apply_thinning) {
+		input_thinned = input_binary.clone();
+		thinning(input_thinned);
+	} else {
+		input_thinned = input;
+	}
 	
 	// Find strong points within fingerprint
-	Mat harris_corners, harris_normalised;
 	harris_corners = Mat::zeros(input_thinned.size(), CV_32FC1);
 	cv::cornerHarris(input_thinned, harris_corners, 2, 3, 0.04, BORDER_DEFAULT);
 	cv::normalize(harris_corners, harris_normalised, 0, 255, NORM_MINMAX, CV_32FC1, Mat());
@@ -114,11 +118,10 @@ Mat applyAlgo(Mat &input, bool display = false)
 	int threshold_harris = 125;
 	vector<KeyPoint> keypoints;
 
-	Mat rescaled;
 	cv::convertScaleAbs(harris_normalised, rescaled);
 	Mat harris_c(rescaled.rows, rescaled.cols, CV_8UC3);
-	Mat in[] = { rescaled, rescaled, rescaled };
-	int from_to[] = { 0,0, 1,1, 2,2 };
+	Mat in[] = {rescaled, rescaled, rescaled};
+	int from_to[] = {0, 0, 1, 1, 2, 2};
 
 	cv::mixChannels(in, 3, &harris_c, 1, from_to, 3);
 
@@ -132,7 +135,10 @@ Mat applyAlgo(Mat &input, bool display = false)
 			}
 		}
 	}
-	
+
+	// Save fingerprint after operations for quicker comparisions in the future
+	imwrite("thinned_" + filename, input_thinned);
+
 	// Display all comparisions
 	if (display) {
 		Mat container_1(input.rows, input.cols * 2, CV_8UC1);
@@ -166,28 +172,40 @@ int main(int argc, const char** argv)
 	map<string, float> scores;
 
 	// Load 'control' fingerprint
-	Mat input_1 = imread(CONTROL_IMG, IMREAD_GRAYSCALE);
+	Mat input_1 = imread(CONTROL_FILENAME, IMREAD_GRAYSCALE);
 	if (input_1.empty()) {
-		cout << "Failed to load " << CONTROL_IMG << endl;
-		return 1;
+		cout << "Failed to load " << CONTROL_FILENAME << endl;
+		
+		return EXIT_FAILURE;
 	}
 
-	Mat descriptors_1 = applyAlgo(input_1);
-
+	Mat descriptors_1 = applyAlgo(input_1, CONTROL_FILENAME);
+	
 	// Load random fingerprint & test against control fingerprint
-	for (int i = 0; i < 3; i++) {
+	for (int i = 0; i < 10; i++) {
 		int num = rand() % 10;
 
-		Mat input_2 = imread(images[num], IMREAD_GRAYSCALE);
+		string filename = images[num];
+
+		// Check if already thinned file exists 
+		ifstream infile("thinned_" + filename);
+		Mat input_2, descriptors_2;
+
+		if (infile.good()) {
+			input_2 = imread("thinned_" + filename, IMREAD_GRAYSCALE);
+			descriptors_2 = applyAlgo(input_2, filename);
+		} else {
+			input_2 = imread(filename, IMREAD_GRAYSCALE);
+			descriptors_2 = applyAlgo(input_2, filename, true);
+		}
+		
 		if (input_2.empty()) {
-			cout << "Failed to load " << images[num] << endl;
-			return 1;
+			cout << "Failed to load " << filename << endl;
+
+			return EXIT_FAILURE;
 		}
 
-		cout << "Testing " << CONTROL_IMG << " VS " << images[num];
-
-		// Apply binarization & thinning operations
-		Mat descriptors_2 = applyAlgo(input_2);
+		cout << "Testing " << CONTROL_FILENAME << " VS " << filename;
 
 		Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create("BruteForce-Hamming");
 		vector<DMatch> matches;
@@ -200,8 +218,8 @@ int main(int argc, const char** argv)
 
 		score /= matches.size();
 
-		cout << " - " << ((score <= THRESHOLD) ? "MATCH" : "NO MATCH") << endl;
+		cout << " - " << score  << " - " << ((score <= THRESHOLD) ? "MATCH" : "NO MATCH") << endl;
 	}
 
-	return 0;
+	return EXIT_SUCCESS;
 }
