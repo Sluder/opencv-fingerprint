@@ -1,3 +1,9 @@
+/*
+ * Names : Zachary Sluder, Stacey Lawson, Elijah Meyer, Alexander Miller, Alton Panton
+ * Course : CS-4410 Software Engineering
+ *
+ * Implements OpenCV to compare a fingerprint image against a 'database'
+ */
 #include <opencv2/opencv.hpp>
 #include <opencv2/features2d.hpp>
 #include <fstream>
@@ -93,6 +99,7 @@ Mat getDescriptors(Mat& input_thinned, vector<KeyPoint> keypoints)
  * Helper to run all thinning operations, and find important corners
  *
  * @param input : Image of fingerprint to be operated on
+ * @param filename : Used to save thinned file for later use
  * @param apply_thinning : Whether to apply thinning operation on fingerprint
  * @param display : Whether to show all comparisions after applied operations
  * @return : Descriptors grabbed from getDescriptors()
@@ -106,6 +113,8 @@ Mat applyAlgo(Mat& input, string filename, bool apply_thinning = false, bool dis
 	if (apply_thinning) {
 		input_thinned = input_binary.clone();
 		thinning(input_thinned);
+
+		imwrite("thinned_" + filename, input_thinned);
 	} else {
 		input_thinned = input;
 	}
@@ -115,7 +124,6 @@ Mat applyAlgo(Mat& input, string filename, bool apply_thinning = false, bool dis
 	cv::cornerHarris(input_thinned, harris_corners, 2, 3, 0.04, BORDER_DEFAULT);
 	cv::normalize(harris_corners, harris_normalised, 0, 255, NORM_MINMAX, CV_32FC1, Mat());
 
-	int threshold_harris = 125;
 	vector<KeyPoint> keypoints;
 
 	cv::convertScaleAbs(harris_normalised, rescaled);
@@ -128,16 +136,13 @@ Mat applyAlgo(Mat& input, string filename, bool apply_thinning = false, bool dis
 	// Find all keypoints within fingerprint for comparisions
 	for (int x = 0; x < harris_normalised.cols; x++) {
 		for (int y = 0; y < harris_normalised.rows; y++) {
-			if ((int)harris_normalised.at<float>(y, x) > threshold_harris) {
+			if ((int)harris_normalised.at<float>(y, x) > 125) {
 				circle(harris_c, Point(x, y), 5, Scalar(0, 255, 0), 1);
 				circle(harris_c, Point(x, y), 1, Scalar(0, 0, 255), 1);
 				keypoints.push_back(KeyPoint(x, y, 1));
 			}
 		}
 	}
-
-	// Save fingerprint after operations for quicker comparisions in the future
-	imwrite("thinned_" + filename, input_thinned);
 
 	// Display all comparisions
 	if (display) {
@@ -207,6 +212,7 @@ int main(int argc, const char** argv)
 
 		cout << "Testing " << CONTROL_FILENAME << " VS " << filename;
 
+		// Compare descriptors and calculate final score
 		Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create("BruteForce-Hamming");
 		vector<DMatch> matches;
 		matcher->match(descriptors_1, descriptors_2, matches);
