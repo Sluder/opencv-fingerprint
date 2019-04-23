@@ -17,7 +17,7 @@ using namespace cv;
 string CONTROL_FILENAME = "101_4.tif";
 
 // Threshold for fingerprint comparisions. EX: result <= THRESHOLD is a match
-int THRESHOLD = 100;               
+int THRESHOLD = 50;               
 
 /*
  * Helper for thinning() on every iteration
@@ -40,7 +40,7 @@ void thinningIteration(Mat& image, int iter)
 			uchar p8 = image.at<uchar>(i, j - 1);
 			uchar p9 = image.at<uchar>(i - 1, j - 1);
 
-			int A = (p2 == 0 && p3 == 1) + (p3 == 0 && p4 == 1);
+			int A = (p2 == 0 && p3 == 1) + (p3 == 0 && p4 == 1) +
 					(p4 == 0 && p5 == 1) + (p5 == 0 && p6 == 1) +
 					(p6 == 0 && p7 == 1) + (p7 == 0 && p8 == 1) +
 					(p8 == 0 && p9 == 1) + (p9 == 0 && p2 == 1);
@@ -176,18 +176,20 @@ int main(int argc, const char** argv)
 	string images[10] = {"101_2.tif", "101_3.tif", "101_4.tif", "101_5.tif", "101_6.tif", "101_7.tif", "101_8.tif", "102_1.tif", "102_2.tif", "102_3.tif"};
 	map<string, float> scores;
 
+	int wrong_counter = 0;
+
 	// Load 'control' fingerprint
 	Mat input_1 = imread(CONTROL_FILENAME, IMREAD_GRAYSCALE);
 	if (input_1.empty()) {
 		cout << "Failed to load " << CONTROL_FILENAME << endl;
-		
+
 		return EXIT_FAILURE;
 	}
 
 	Mat descriptors_1 = applyAlgo(input_1, CONTROL_FILENAME);
 	
 	// Load random fingerprint & test against control fingerprint
-	for (int i = 0; i < 10; i++) {
+	while (wrong_counter < 3) {
 		int num = rand() % 10;
 
 		string filename = images[num];
@@ -199,11 +201,12 @@ int main(int argc, const char** argv)
 		if (infile.good()) {
 			input_2 = imread("thinned_" + filename, IMREAD_GRAYSCALE);
 			descriptors_2 = applyAlgo(input_2, filename);
-		} else {
+		}
+		else {
 			input_2 = imread(filename, IMREAD_GRAYSCALE);
 			descriptors_2 = applyAlgo(input_2, filename, true);
 		}
-		
+
 		if (input_2.empty()) {
 			cout << "Failed to load " << filename << endl;
 
@@ -224,8 +227,15 @@ int main(int argc, const char** argv)
 
 		score /= matches.size();
 
-		cout << " - " << score  << " - " << ((score <= THRESHOLD) ? "MATCH" : "NO MATCH") << endl;
+		if (score <= THRESHOLD) {
+			cout << " - " << score << " - " << "MATCH" << endl;
+
+			return EXIT_SUCCESS;
+		} else {
+			cout << " - " << score << " - " << "NO MATCH" << endl;
+			wrong_counter++;
+		}
 	}
 
-	return EXIT_SUCCESS;
+	return EXIT_FAILURE;
 }
