@@ -104,10 +104,10 @@ Mat getDescriptors(Mat& input_thinned, vector<KeyPoint> keypoints)
  * @param display : Whether to show all comparisions after applied operations
  * @return : Descriptors grabbed from getDescriptors()
  */
-Mat applyAlgo(Mat& input, string filename, bool apply_thinning = false, bool display = false)
+Mat applyAlgo(Mat& input, string filename, bool apply_thinning = true, bool display = false)
 {
 	Mat input_binary, input_thinned, harris_corners, harris_normalised, rescaled;
-	threshold(input, input_binary, 0, 255, THRESH_BINARY_INV | THRESH_OTSU);
+	threshold(input, input_binary, 255, 0, THRESH_BINARY_INV | THRESH_OTSU);
 	
 	// Apply thinning operation
 	if (apply_thinning) {
@@ -189,10 +189,11 @@ int main(int argc, const char** argv)
 	Mat descriptors_1 = applyAlgo(input_1, CONTROL_FILENAME);
 	
 	// Load random fingerprint & test against control fingerprint
-	while (wrong_counter < 3) {
+	while (wrong_counter < 15) {
 		int num = rand() % 10;
-
 		string filename = images[num];
+
+		cout << "Testing " << CONTROL_FILENAME << " VS " << filename;
 
 		// Check if already thinned file exists 
 		ifstream infile("thinned_" + filename);
@@ -200,11 +201,11 @@ int main(int argc, const char** argv)
 
 		if (infile.good()) {
 			input_2 = imread("thinned_" + filename, IMREAD_GRAYSCALE);
-			descriptors_2 = applyAlgo(input_2, filename);
+			descriptors_2 = applyAlgo(input_2, filename, false);
 		}
 		else {
 			input_2 = imread(filename, IMREAD_GRAYSCALE);
-			descriptors_2 = applyAlgo(input_2, filename, true);
+			descriptors_2 = applyAlgo(input_2, filename);
 		}
 
 		if (input_2.empty()) {
@@ -212,8 +213,6 @@ int main(int argc, const char** argv)
 
 			return EXIT_FAILURE;
 		}
-
-		cout << "Testing " << CONTROL_FILENAME << " VS " << filename;
 
 		// Compare descriptors and calculate final score
 		Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create("BruteForce-Hamming");
