@@ -17,7 +17,10 @@ using namespace cv;
 string CONTROL_FILENAME = "101_4.tif";
 
 // Threshold for fingerprint comparisions. EX: result <= THRESHOLD is a match
-int THRESHOLD = 50;               
+#define THRESHOLD 50         
+
+// Number of failed attempts to test fingerprint
+#define FAILED_ATTEMPTS 3      
 
 /*
  * Helper for thinning() on every iteration
@@ -189,7 +192,7 @@ int main(int argc, const char** argv)
 	Mat descriptors_1 = applyAlgo(input_1, CONTROL_FILENAME);
 	
 	// Load random fingerprint & test against control fingerprint
-	while (wrong_counter < 15) {
+	while (wrong_counter < FAILED_ATTEMPTS) {
 		int num = rand() % 10;
 		string filename = images[num];
 
