@@ -14,7 +14,7 @@ using namespace std;
 using namespace cv;
 
 // Sample fingerprint image that is comapred with all other images
-string CONTROL_FILENAME = "101_4.tif";
+string CONTROL_FILENAME = "101_6.tif";
 
 // Threshold for fingerprint comparisions. EX: result <= THRESHOLD is a match
 #define THRESHOLD 50         
@@ -110,7 +110,7 @@ Mat getDescriptors(Mat& input_thinned, vector<KeyPoint> keypoints)
 Mat applyAlgo(Mat& input, string filename, bool apply_thinning = true, bool display = false)
 {
 	Mat input_binary, input_thinned, harris_corners, harris_normalised, rescaled;
-	threshold(input, input_binary, 255, 0, THRESH_BINARY_INV | THRESH_OTSU);
+	threshold(input, input_binary, 0, 255, THRESH_BINARY_INV | THRESH_OTSU);
 	
 	// Apply thinning operation
 	if (apply_thinning) {
@@ -176,7 +176,7 @@ Mat applyAlgo(Mat& input, string filename, bool apply_thinning = true, bool disp
  */
 int main(int argc, const char** argv)
 {
-	string images[10] = {"101_2.tif", "101_3.tif", "101_4.tif", "101_5.tif", "101_6.tif", "101_7.tif", "101_8.tif", "102_1.tif", "102_2.tif", "102_3.tif"};
+	string images[10] = {"101_2.tif", "102_8.tif", "101_4.tif", "101_5.tif", "101_6.tif", "101_7.tif", "101_8.tif", "102_1.tif", "102_2.tif", "102_3.tif"};
 	map<string, float> scores;
 
 	int wrong_counter = 0;
@@ -205,8 +205,7 @@ int main(int argc, const char** argv)
 		if (infile.good()) {
 			input_2 = imread("thinned_" + filename, IMREAD_GRAYSCALE);
 			descriptors_2 = applyAlgo(input_2, filename, false);
-		}
-		else {
+		} else {
 			input_2 = imread(filename, IMREAD_GRAYSCALE);
 			descriptors_2 = applyAlgo(input_2, filename);
 		}
